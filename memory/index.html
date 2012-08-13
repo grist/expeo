@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type='text/javascript'>
+
+/* Prototype de jeu "Memory" G.R. 10/08/2012 */
+
+	var canvas;
+	var ctx;
+	
+	var cardBack;
+	var cardWidth;
+	var cardHeight;
+
+	var symbols;
+	
+	var cols;
+	var rows;
+
+	var nbCards;
+	
+	var deck;
+	var gameArray;
+	
+	var nbAttempts;
+	var minNbAttempts;
+	
+	var cardsSideUp = [];
+
+function init() {
+
+	canvas=document.getElementById('canvas1');
+	canvas.width = canvas.width;
+	ctx=canvas.getContext('2d');
+	ctx.textAlign = "right";
+	ctx.textBaseline = "bottom";
+	ctx.font = "normal 16px sans-serif";
+	
+	cardBack=document.getElementById('dos');
+	cardNone=document.getElementById('empty');
+	
+	cardWidth = cardBack.width;
+	cardHeight = cardBack.height;
+
+	symbols = new Array(12);
+	symbols[0] = document.getElementById('tom');
+	symbols[1] = document.getElementById('lila');
+	symbols[2] = document.getElementById('requin');
+	symbols[3] = document.getElementById('dentiste');
+	symbols[4] = document.getElementById('bacterie');
+	symbols[5] = document.getElementById('clown');
+	symbols[6] = document.getElementById('incisive');
+	symbols[7] = document.getElementById('enfant');
+	symbols[8] = document.getElementById('molaire');
+	symbols[9] = document.getElementById('canine');
+	symbols[10] = document.getElementById('adulte');
+	symbols[11] = document.getElementById('poubelle');
+	
+	nbAttempts = 0;
+	score = 0;
+	
+	cols = 4;
+	rows = 3;
+	
+	nbCards = rows*cols;
+	deck = Array(nbCards);
+	minNbAttempts = Math.floor(nbCards / 2);
+
+	//inits cards deck with symbol pairs
+	symbolIndex = 0;
+	for(i = 0; i < nbCards; i=i+2) {
+		symbol = symbolIndex % symbols.length;
+		deck[i] = symbol;
+		deck[i+1] = symbol;
+		symbolIndex++;
+	}
+	deck.sort(function() {return 0.5 - Math.random()});
+	
+	// inits the game array putting each deck card in the game. 
+	// on devrait utiliser le deck en fait. ça ne sert à rien d'avoir un 2nd tableau.
+	gameArray = new Array(cols)	
+	var deckIndex = 0;
+	for (i=0; i < cols; i++) {
+		gameArray[i]=new Array(rows)
+		for(j=0; j < rows; j++) {
+			gameArray[i][j] = {side:0, symbol:deck[deckIndex++], visible:true};
+		}
+	}
+
+	//draw game
+	drawFullGame();
+	
+	canvas.onmouseup = function (e) {
+	
+		var loc = windowToCanvas(canvas, e.clientX, e.clientY);
+		var row = Math.ceil(Math.abs(loc.y / cardHeight)) - 1;
+		var col = Math.ceil(Math.abs(loc.x / cardWidth)) - 1;
+		
+		if(gameArray[col][row].side == 0) { //Checking wether it's facing up or not.
+			gameArray[col][row].side = 1;
+		} else {
+			gameArray[col][row].side = 0;
+		}
+
+		checkFound();
+		drawFullGame();
+		checkWon();
+
+	};
+}
+
+function windowToCanvas(canvas, x, y) {
+   var bbox = canvas.getBoundingClientRect();
+
+   return { x: x - bbox.left * (canvas.width  / bbox.width),
+            y: y - bbox.top  * (canvas.height / bbox.height)
+          };
+}
+
+function drawFullGame() {
+	for (i=0; i < cols; i++) {
+		for(j=0; j < rows; j++) {
+			var cardToDraw;
+			if(gameArray[i][j].visible == true) {
+				cardToDraw = (gameArray[i][j].side == 0)?cardBack:symbols[gameArray[i][j].symbol]; //picks the image from the symbols array.
+			} else {
+				cardToDraw = cardNone;
+			}
+			ctx.drawImage(cardToDraw, cardWidth * i, cardHeight * j);
+		}
+	}
+}
+
+function checkFound() {
+
+	for (i=0; i < cols; i++) {
+		for(j=0; j < rows; j++) {
+		
+			var found = false;
+			for(k=0;k<cardsSideUp.length;k++) { //looking for card not already facing up
+				if(gameArray[i][j] == cardsSideUp[k]) found = true;
+			}
+
+			if(gameArray[i][j].visible == true && gameArray[i][j].side == 1) { //card is still in the game and facing up.
+				if(!found) cardsSideUp.push(gameArray[i][j]); //add card to the sideup stack
+			}
+		}
+	}
+	if(cardsSideUp.length == 2) {
+		if (cardsSideUp[0].symbol == cardsSideUp[1].symbol) { // ok, found same cards.
+			cardsSideUp[0].visible = false; //card won't show up in next draw
+			cardsSideUp[1].visible = false;
+			cardsSideUp = [];
+			nbAttempts = nbAttempts + 1;
+		}
+	} else {
+		if(cardsSideUp.length == 3) {
+			cardsSideUp[1].side = 0; //turns card face down 
+			cardsSideUp[0].side = 0;
+			cardsSideUp = new Array(cardsSideUp[2]); //keeps only the last one in the sideup stack.
+			nbAttempts = nbAttempts + 1;
+		}
+	}
+	updateScore();
+	console.log(cardsSideUp);
+}
+
+function checkWon() {
+
+	var won = true;
+	for (i=0; i < cols; i++) {
+		for(j=0; j < rows; j++) {
+			if(gameArray[i][j].visible == true) won = false;
+		}
+	}
+	if(won == true) endGame();
+}
+
+function updateScore() {
+	ctx.textAlign = "right";
+	ctx.textBaseline = "bottom";
+	ctx.font = "normal 16px sans-serif";
+	ctx.fillStyle = '#fff';
+	ctx.fillRect(0, 580, 800, 20); //clears the bottom line.
+	ctx.fillStyle = '#000';
+	ctx.fillText("Essais : " + nbAttempts + ' (Bon : ' + (nbCards - 1) + ')', 800,600);
+}
+
+function endGame() {
+	ctx.textAlign = "center";
+	ctx.textBaseline = "bottom";
+	ctx.font = "bold 60px sans-serif";
+	ctx.fillStyle = '#ffcc22';
+	ctx.fillText("Bravo !", 400,200);
+	ctx.fillStyle = '#288700';
+	canvas.onmouseup = function (e) {init();} // réinits on click.
+}
+</script>
+<title>Memory</title></head>
+<body onload="init();">
+<canvas id="canvas1" width="800" height="600" style="border:0px solid #d3d3d3;">
+Veuillez mettre à jour votre navigateur svp.</canvas>
+
+<img id="bacterie" src="bacterie.png" style="display:none;width:100px;" />
+<img id="canine" src="canine.png" style="display:none;width:100px;" />
+<img id="clown" src="clown.png" style="display:none;width:100px;" />
+<img id="dentiste" src="dentiste.png" style="display:none;width:100px;" />
+<img id="enfant" src="enfant.png" style="display:none;width:100px;" />
+<img id="lila" src="lila.png" style="display:none;width:100px;" />
+<img id="poubelle" src="poubelle.png" style="display:none;width:100px;" />
+<img id="requin" src="requin.png" style="display:none;width:100px;" />
+<img id="tom" src="tom.png" style="display:none;width:100px;" />
+<img id="adulte" src="adulte.png" style="display:none;width:100px;" />
+<img id="molaire" src="molaire.png" style="display:none;width:100px;" />
+<img id="incisive" src="incisive.png" style="display:none;width:100px;" />
+<img id="enfant" src="enfant.png" style="display:none;width:100px;" />
+
+
+<img id="dos" src="dos.png" style="display:none;width:100px;" />
+<img id="empty" src="vide.png" style="display:none;width:100px;" />
+
+</body>
+</html>
